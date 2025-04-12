@@ -1,0 +1,52 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "close": "Close"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "newDashboard": "New Dashboard",
+    "noDashboards": "No dashboards yet",
+    "createFirst": "Create your first dashboard",
+    "upload": "Upload",
+    "insights": "Insights",
+    "visualizations": "Visualizations",
+    "export": "Export",
+    "share": "Share"
+  },
+  "subscription": {
+    "plans": "Subscription Plans",
+    "current": "Current Plan",
+    "upgrade": "Upgrade",
+    "manage": "Manage Subscription",
+    "trial": "Trial ends on {{date}}",
+    "features": "Features",
+    "limits": "Usage Limits"
+  },
+  "profile": {
+    "title": "Profile",
+    "personalInfo": "Personal Information",
+    "preferences": "Preferences",
+    "security": "Security",
+    "notifications": "Notifications"
+  }
+}

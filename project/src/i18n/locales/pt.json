@@ -1,0 +1,52 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "error": "Erro",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "create": "Criar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "finish": "Finalizar",
+    "close": "Fechar"
+  },
+  "auth": {
+    "signIn": "Entrar",
+    "signUp": "Cadastrar",
+    "signOut": "Sair",
+    "email": "E-mail",
+    "password": "Senha",
+    "forgotPassword": "Esqueceu sua senha?",
+    "noAccount": "Não tem uma conta?",
+    "hasAccount": "Já tem uma conta?"
+  },
+  "dashboard": {
+    "title": "Painel",
+    "newDashboard": "Novo painel",
+    "noDashboards": "Nenhum painel ainda",
+    "createFirst": "Crie seu primeiro painel",
+    "upload": "Enviar",
+    "insights": "Insights",
+    "visualizations": "Visualizações",
+    "export": "Exportar",
+    "share": "Compartilhar"
+  },
+  "subscription": {
+    "plans": "Planos de assinatura",
+    "current": "Plano atual",
+    "upgrade": "Atualizar",
+    "manage": "Gerenciar assinatura",
+    "trial": "O período de teste termina em {{date}}",
+    "features": "Recursos",
+    "limits": "Limites de uso"
+  },
+  "profile": {
+    "title": "Perfil",
+    "personalInfo": "Informações pessoais",
+    "preferences": "Preferências",
+    "security": "Segurança",
+    "notifications": "Notificações"
+  }
+}

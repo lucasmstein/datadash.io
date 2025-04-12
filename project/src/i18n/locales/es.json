@@ -1,0 +1,52 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "back": "Volver",
+    "next": "Siguiente",
+    "finish": "Finalizar",
+    "close": "Cerrar"
+  },
+  "auth": {
+    "signIn": "Iniciar sesión",
+    "signUp": "Registrarse",
+    "signOut": "Cerrar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes una cuenta?",
+    "hasAccount": "¿Ya tienes una cuenta?"
+  },
+  "dashboard": {
+    "title": "Panel de control",
+    "newDashboard": "Nuevo panel",
+    "noDashboards": "No hay paneles todavía",
+    "createFirst": "Crea tu primer panel",
+    "upload": "Subir",
+    "insights": "Insights",
+    "visualizations": "Visualizaciones",
+    "export": "Exportar",
+    "share": "Compartir"
+  },
+  "subscription": {
+    "plans": "Planes de suscripción",
+    "current": "Plan actual",
+    "upgrade": "Mejorar",
+    "manage": "Administrar suscripción",
+    "trial": "La prueba termina el {{date}}",
+    "features": "Características",
+    "limits": "Límites de uso"
+  },
+  "profile": {
+    "title": "Perfil",
+    "personalInfo": "Información personal",
+    "preferences": "Preferencias",
+    "security": "Seguridad",
+    "notifications": "Notificaciones"
+  }
+}
