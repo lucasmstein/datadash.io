@@ -9,7 +9,11 @@ interface Dashboard {
   title: string;
   user_id: string;
   created_at: string;
+  profiles?: {
+    full_name: string;
+  };
 }
+
 
 export function AdminDashboards() {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -22,10 +26,19 @@ export function AdminDashboards() {
 
   async function fetchDashboards() {
     try {
-      const { data, error } = await supabase
-        .from('dashboards')
-        .select('*')
-        .order('created_at', { ascending: false });
+     const { data, error } = await supabase
+  .from('dashboards')
+  .select(`
+    id,
+    title,
+    file_info,
+    created_at,
+    user_id,
+    profiles (
+      full_name
+    )
+  `)
+  .order('created_at', { ascending: false });
 
       if (error) throw error;
       setDashboards(data || []);
@@ -67,39 +80,44 @@ export function AdminDashboards() {
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="text-left border-b border-gray-700">
-                <th className="pb-3 text-gray-400 font-medium">Title</th>
-                <th className="pb-3 text-gray-400 font-medium">Created At</th>
-                <th className="pb-3 text-gray-400 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dashboards.map((dashboard) => (
-                <tr key={dashboard.id} className="border-b border-gray-700/50">
-                  <td className="py-4">
-                    <div className="font-medium">{dashboard.title}</div>
-                  </td>
-                  <td className="py-4 text-gray-400">
-                    {new Date(dashboard.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="py-4">
-                    <button
-                      onClick={() => navigate(`/dashboard/${dashboard.id}`)}
-                      className="text-blue-500 hover:text-blue-400 mr-4"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleDelete(dashboard.id)}
-                      className="text-red-500 hover:text-red-400"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+      <thead>
+  <tr className="text-left border-b border-gray-700">
+    <th className="pb-3 text-gray-400 font-medium">Title</th>
+    <th className="pb-3 text-gray-400 font-medium">Created At</th>
+    <th className="pb-3 text-gray-400 font-medium">User</th>
+    <th className="pb-3 text-gray-400 font-medium">Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {dashboards.map((dashboard) => (
+    <tr key={dashboard.id} className="border-b border-gray-700/50">
+      <td className="py-4">
+        <div className="font-medium">{dashboard.title}</div>
+      </td>
+      <td className="py-4 text-gray-400">
+        {new Date(dashboard.created_at).toLocaleDateString()}
+      </td>
+      <td className="py-4 text-gray-400">
+        {dashboard.profiles?.full_name || 'Unknown'}
+      </td>
+      <td className="py-4">
+        <button
+          onClick={() => navigate(`/dashboard/${dashboard.id}`)}
+          className="text-blue-500 hover:text-blue-400 mr-4"
+        >
+          View
+        </button>
+        <button
+          onClick={() => handleDelete(dashboard.id)}
+          className="text-red-500 hover:text-red-400"
+        >
+          Delete
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
           </table>
           
           {dashboards.length === 0 && (

@@ -79,11 +79,12 @@ export function AdminDashboard() {
           name,
           users
         }));
+console.log('uploads:', uploads);
 
         // Format recent uploads
         const recentUploads = uploads?.map(upload => ({
           id: upload.id,
-          file_name: upload.file_info.name,
+file_name: upload.file_info?.name || 'Unknown file',
           user_name: upload.profiles?.full_name || 'Unknown',
           created_at: upload.created_at
         })) || [];
