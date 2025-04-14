@@ -1,7 +1,6 @@
-// supabase/functions/stripe-webhook/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.0.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2022-11-15",
@@ -31,15 +30,16 @@ serve(async (req) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
 
-    // Atualiza a tabela de subscriptions
     const { error } = await supabase
       .from("subscriptions")
       .insert([
         {
-          user_id: session.client_reference_id,
+          user_id: session.metadata?.user_id,
           status: "active",
           created_at: new Date().toISOString(),
-          plan_id: session.metadata?.plan_id,
+          plan_id: session.metadata?.price_id,
+          stripe_customer_id: session.customer,
+          subscription_id: session.subscription,
         },
       ]);
 

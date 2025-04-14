@@ -2,31 +2,24 @@ import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload as UploadIcon, FileSpreadsheet, X, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useSubscription } from '../hooks/useSubscription';
+import { canUseLimit } from '../lib/planLimits';
+import { LimitModal } from '../components/modals/LimitModal';
 
-// Helper function to detect column type
 function detectColumnType(values: string[]): 'number' | 'date' | 'string' {
-  // Remove empty values
   const nonEmptyValues = values.filter(Boolean);
   if (nonEmptyValues.length === 0) return 'string';
-
-  // Check if all values are numbers
   const areAllNumbers = nonEmptyValues.every(value => !isNaN(Number(value)));
   if (areAllNumbers) return 'number';
-
-  // Check if all values are dates
-  const dateRegex = /^\d{4}[-/]\d{2}[-/]\d{2}$/; // Simple date format YYYY-MM-DD
+  const dateRegex = /^\d{4}[-/]\d{2}[-/]\d{2}$/;
   const areAllDates = nonEmptyValues.every(value => dateRegex.test(value));
   if (areAllDates) return 'date';
-
   return 'string';
 }
 
-// Helper function to parse CSV
 function parseCSV(text: string) {
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   const headers = lines[0].split(',').map(header => header.trim());
-  
-  // Parse data rows
   const rows = lines.slice(1).map(line => {
     const values = line.split(',');
     return headers.reduce((obj, header, index) => {
@@ -34,21 +27,15 @@ function parseCSV(text: string) {
       return obj;
     }, {} as Record<string, string>);
   });
-
-  // Analyze columns
   const columnAnalysis = headers.map(header => {
     const values = rows.map(row => row[header]);
     const type = detectColumnType(values);
-    
-    // Convert values based on type
     const processedValues = values.map(value => {
       if (!value) return null;
       if (type === 'number') return Number(value);
       if (type === 'date') return new Date(value).toISOString();
       return value;
     });
-
-    // Calculate statistics for numeric columns
     let stats;
     if (type === 'number') {
       const numericValues = processedValues.filter(v => v !== null) as number[];
@@ -59,17 +46,15 @@ function parseCSV(text: string) {
         median: numericValues.sort((a, b) => a - b)[Math.floor(numericValues.length / 2)],
       };
     }
-
     return {
       name: header,
       type,
-      sample: processedValues.slice(0, 5), // Take first 5 values as sample
+      sample: processedValues.slice(0, 5),
       stats,
       uniqueValues: new Set(processedValues).size,
       nullCount: processedValues.filter(v => v === null).length,
     };
   });
-
   return { headers, rows, columnAnalysis };
 }
 
@@ -79,6 +64,8 @@ export function Upload() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const { subscription } = useSubscription();
+  const [limitFeature, setLimitFeature] = useState<null | 'dashboards' | 'fileSizeMb'>(null);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -110,12 +97,26 @@ export function Upload() {
     setUploadProgress(0);
 
     try {
-      // Get the current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
       if (!user) throw new Error('Not authenticated');
 
-      // Simulate upload progress
+      const { data: existingDashboards } = await supabase
+        .from('dashboards')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (!canUseLimit(subscription, 'dashboards', existingDashboards?.length || 0)) {
+        setLimitFeature('dashboards');
+        return;
+      }
+
+      const fileSizeMb = file.size / (1024 * 1024);
+      if (!canUseLimit(subscription, 'fileSizeMb', fileSizeMb)) {
+        setLimitFeature('fileSizeMb');
+        return;
+      }
+
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -126,11 +127,9 @@ export function Upload() {
         });
       }, 200);
 
-      // Read and parse CSV file
       const text = await file.text();
       const { columnAnalysis } = parseCSV(text);
 
-      // Create dashboard
       const { data: dashboard, error: dbError } = await supabase
         .from('dashboards')
         .insert({
@@ -151,7 +150,6 @@ export function Upload() {
 
       if (dbError) throw dbError;
 
-      // Complete progress and navigate
       clearInterval(progressInterval);
       setUploadProgress(100);
       setTimeout(() => {
@@ -166,7 +164,8 @@ export function Upload() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Upload Data</h1>
         <p className="text-gray-400 mt-2">Upload a CSV file to create a new dashboard</p>
@@ -276,5 +275,11 @@ export function Upload() {
         </ul>
       </div>
     </div>
+    <LimitModal
+    open={!!limitFeature}
+    feature={limitFeature!}
+    onClose={() => setLimitFeature(null)}
+  />
+</>
   );
 }
