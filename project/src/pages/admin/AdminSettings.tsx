@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { Loader2, Save } from 'lucide-react';
 
-type Setting = {
+interface Setting {
   id: string;
   key: string;
   value: string;
-  description: string;
-};
+  description?: string;
+}
 
 export function AdminSettings() {
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -19,22 +19,20 @@ export function AdminSettings() {
   }, []);
 
   async function fetchSettings() {
-    const { data, error } = await supabase.from('settings').select('*').order('created_at');
-    if (error) {
-      console.error('Erro ao buscar configurações:', error);
-    } else {
+    const { data, error } = await supabase.from('settings').select('*');
+    if (!error && data) {
       setSettings(data);
     }
     setLoading(false);
   }
 
-  const handleChange = (index: number, value: string) => {
+  function handleChange(index: number, value: string) {
     const updated = [...settings];
     updated[index].value = value;
     setSettings(updated);
-  };
+  }
 
-  const saveSettings = async () => {
+  async function saveSettings() {
     setSaving(true);
     for (const setting of settings) {
       await supabase
@@ -44,15 +42,14 @@ export function AdminSettings() {
     }
     setSaving(false);
     fetchSettings();
-    alert('Configurações salvas com sucesso!');
-  };
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">API & Configurações do Sistema</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold mb-4">API & Configurações do Sistema</h1>
 
       {loading ? (
-        <div className="flex justify-center items-center h-40">
+        <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
         </div>
       ) : (
@@ -60,10 +57,12 @@ export function AdminSettings() {
           {settings.map((setting, index) => (
             <div key={setting.id} className="bg-gray-800 p-4 rounded-xl">
               <label className="block text-sm font-medium text-gray-400 mb-1">
-                {setting.key}
+                {setting.key === 'stripe_pk' && 'Stripe Public Key (pk_test_...)'}
+                {setting.key === 'stripe_sk' && 'Stripe Secret Key (sk_test_...)'}
+                {setting.key !== 'stripe_pk' && setting.key !== 'stripe_sk' && setting.key}
               </label>
               <input
-                type="text"
+                type={setting.key.includes('sk') ? 'password' : 'text'}
                 value={setting.value}
                 onChange={(e) => handleChange(index, e.target.value)}
                 className="w-full p-2 rounded bg-gray-900 border border-gray-700 text-white"
@@ -77,9 +76,9 @@ export function AdminSettings() {
           <button
             onClick={saveSettings}
             disabled={saving}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded flex items-center gap-2"
           >
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="w-4 h-4" />
             {saving ? 'Salvando...' : 'Salvar Configurações'}
           </button>
         </div>
