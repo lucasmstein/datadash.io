@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { Sidebar } from '../../components/Sidebar';
+import { DeleteConfirmationModal } from '../../components/modals/DeleteConfirmationModal';
+
 interface Dashboard {
   id: string;
   title: string;
@@ -18,6 +20,8 @@ export function AdminDashboards() {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDashboard, setSelectedDashboard] = useState<Dashboard | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,23 +65,24 @@ export function AdminDashboards() {
     }
   }
 
-  async function handleDelete(id: string) {
-    try {
-      const { error } = await supabase
-        .from('dashboards')
-        .delete()
-        .eq('id', id);
+  async function handleDeleteConfirmed() {
+    if (!selectedDashboard) return;
+    const { error } = await supabase
+      .from('dashboards')
+      .delete()
+      .eq('id', selectedDashboard.id);
 
-      if (error) throw error;
+    if (!error) {
       fetchDashboards();
-    } catch (error) {
-      console.error('Erro ao deletar dashboard:', error);
+      setModalOpen(false);
+      setSelectedDashboard(null);
+    } else {
+      alert('Erro ao excluir dashboard');
     }
   }
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
       <div className="flex-1 space-y-6 p-6">
         <h1 className="text-2xl font-bold">Gerenciar Dashboards</h1>
 
@@ -119,7 +124,10 @@ export function AdminDashboards() {
                           Ver
                         </button>
                         <button
-                          onClick={() => handleDelete(dashboard.id)}
+                          onClick={() => {
+                            setSelectedDashboard(dashboard);
+                            setModalOpen(true);
+                          }}
                           className="text-red-500 hover:text-red-400"
                         >
                           Excluir
@@ -139,6 +147,15 @@ export function AdminDashboards() {
           </div>
         )}
       </div>
+
+      {selectedDashboard && (
+        <DeleteConfirmationModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onConfirm={handleDeleteConfirmed}
+          dashboardTitle={selectedDashboard.title}
+        />
+      )}
     </div>
   );
 }

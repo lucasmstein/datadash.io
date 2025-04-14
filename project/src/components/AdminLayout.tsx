@@ -1,4 +1,6 @@
 import React from 'react';
+import { Settings } from 'lucide-react';
+
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard,
@@ -20,6 +22,8 @@ export function AdminLayout() {
     { name: 'Dashboards', href: '/admin/dashboards', icon: FileSpreadsheet },
     { name: 'Plans', href: '/admin/plans', icon: CreditCard },
     { name: 'Uploads', href: '/admin/uploads', icon: Upload },
+    { name: 'Settings', href: '/admin/settings', icon: Settings }
+
   ];
 
   return (

@@ -23,7 +23,7 @@ import { AdminUploads } from './pages/admin/AdminUploads';
 import { useLanguage } from './hooks/useLanguage';
 import { useAuthStore } from './store/useAuthStore';
 import { Landing } from './pages/Landing';
-
+import { AdminSettings } from './pages/admin/AdminSettings';
 
 const queryClient = new QueryClient();
 
@@ -41,6 +41,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -57,16 +58,19 @@ function AppContent() {
         <Route path="/profile" element={<Profile />} />
       </Route>
 
-      <Route element={<AdminGuard><AdminLayout /></AdminGuard>}>
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/dashboards" element={<AdminDashboards />} />
-        <Route path="/admin/plans" element={<AdminPlans />} />
-        <Route path="/admin/uploads" element={<AdminUploads />} />
+      <Route element={<AdminGuard />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="dashboards" element={<AdminDashboards />} />
+          <Route path="plans" element={<AdminPlans />} />
+          <Route path="uploads" element={<AdminUploads />} />
+          <Route path="settings" element={<AdminSettings />} />
+
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/" />} />
-
     </Routes>
   );
 }
