@@ -1,13 +1,12 @@
+
 import { serve } from "https://deno.land/std/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.6.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Inicializa Stripe
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2022-11-15",
 });
 
-// Serve a função
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", {
@@ -27,35 +26,17 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "");
 
-  if (!token) {
-    return new Response(JSON.stringify({ error: "Unauthorized: token missing" }), {
-      status: 401,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-
-  // Valida o token usando Supabase
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-
+  const { data: { user }, error } = await supabase.auth.getUser(token);
   if (!user || error) {
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
     });
   }
+
+  const { price_id, success_url, cancel_url } = await req.json();
 
   try {
-    const { price_id, success_url, cancel_url } = await req.json();
-
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -70,22 +51,12 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ url: session.url }), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("❌ Stripe error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message || "Internal error" }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
+    });
   }
 });
