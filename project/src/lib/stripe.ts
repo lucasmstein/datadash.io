@@ -2,10 +2,6 @@ import { supabase } from './supabase';
 
 const SUPABASE_FUNCTIONS_URL = 'https://cyevofqqtjbbwmnathfs.supabase.co/functions/v1';
 
-/**
- * Cria uma sessão de checkout com o Stripe e redireciona o usuário.
- * @param priceId ID do preço (price_...) do Stripe.
- */
 export async function createCheckoutSession(priceId: string) {
   const { data, error } = await supabase.auth.getSession();
 
@@ -14,6 +10,7 @@ export async function createCheckoutSession(priceId: string) {
   }
 
   const accessToken = data.session.access_token;
+  const userId = data.session.user.id;
 
   const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-checkout-session`, {
     method: 'POST',
@@ -21,7 +18,12 @@ export async function createCheckoutSession(priceId: string) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ priceId }),
+    body: JSON.stringify({
+      price_id: priceId,
+      user_id: userId,
+      success_url: `${window.location.origin}/plans?success=true`,
+      cancel_url: `${window.location.origin}/plans?canceled=true`,
+    }),
   });
 
   const response = await res.json();
@@ -35,6 +37,7 @@ export async function createCheckoutSession(priceId: string) {
 
   window.location.href = response.url;
 }
+
 
 /**
  * Redireciona o usuário para o portal de gerenciamento de assinatura.
