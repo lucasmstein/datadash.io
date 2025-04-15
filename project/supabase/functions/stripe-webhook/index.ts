@@ -24,49 +24,69 @@ serve(async (req) => {
       Deno.env.get("STRIPE_WEBHOOK_SECRET")!
     );
   } catch (err) {
+    console.error("[❌ Webhook Signature Error]", err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
-  console.log("🧪 Webhook session received:", JSON.stringify(session, null, 2));
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
 
-    // 🔍 Buscar plano pelo price_id
+    const userId = session.metadata?.user_id;
+    const priceId = session.metadata?.price_id;
+
+    if (!userId || !priceId) {
+      console.error("[❌ Webhook] Metadata missing user_id or price_id", session.metadata);
+      return new Response("Missing metadata", { status: 400 });
+    }
+
+    // Buscar o plano correto com base no price_id
     const { data: plan, error: planError } = await supabase
       .from("subscription_plans")
       .select("id")
-      .eq("stripe_price_id", session.metadata?.price_id)
+      .eq("stripe_price_id", priceId)
       .single();
 
     if (planError || !plan?.id) {
-      console.error("Plano não encontrado:", session.metadata?.price_id);
+      console.error("[❌ Webhook] Plano não encontrado para price_id:", priceId);
       return new Response("Plano inválido", { status: 500 });
     }
 
-    // ✅ Atualiza assinatura
-    const { error: upsertError } = await supabase
+    // Criar ou atualizar a assinatura
+    const { data: upsertedSubscription, error: upsertError } = await supabase
       .from("subscriptions")
-      .upsert([
-        {
-          user_id: session.metadata?.user_id,
-          status: "active",
-          created_at: new Date().toISOString(),
-          plan_id: plan.id,
-          stripe_customer_id: session.customer,
-          stripe_subscription_id: session.subscription,
-        },
-      ], { onConflict: 'user_id' });
+      .upsert(
+        [
+          {
+            user_id: userId,
+            status: "active",
+            created_at: new Date().toISOString(),
+            plan_id: plan.id,
+            stripe_customer_id: session.customer,
+            stripe_subscription_id: session.subscription,
+          },
+        ],
+        { onConflict: "user_id" }
+      )
+      .select("id")
+      .single();
 
     if (upsertError) {
-      console.error("Erro ao salvar subscription:", upsertError);
+      console.error("[❌ Webhook] Erro ao salvar subscription:", upsertError);
       return new Response("Erro ao salvar assinatura", { status: 500 });
     }
 
-    // ✅ Atualiza perfil
-    await supabase
+    // Vincular no perfil do usuário
+    const { error: profileError } = await supabase
       .from("profiles")
-      .update({ subscription_id: session.id })
-      .eq("id", session.metadata?.user_id);
+      .update({ subscription_id: upsertedSubscription.id })
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("[❌ Webhook] Erro ao atualizar perfil:", profileError);
+      return new Response("Erro ao atualizar perfil", { status: 500 });
+    }
+
+    console.log("[✅ Webhook] Assinatura registrada com sucesso.");
   }
 
   return new Response("ok", { status: 200 });
