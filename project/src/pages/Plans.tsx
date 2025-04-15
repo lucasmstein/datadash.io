@@ -1,10 +1,10 @@
-// ✅ Versão final do Plans.tsx com upsert, uso atual e alerta visual de limites
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Check, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
 import { createCheckoutSession, createPortalSession } from '../lib/stripe';
 import { supabase } from '../lib/supabase';
+
 
 interface PlanFeature {
   name: string;
@@ -20,7 +20,7 @@ interface Plan {
   features: PlanFeature[];
   limits: {
     dashboards: number;
-    fileSize: number; // ajustado para corresponder ao banco
+    fileSizeMb: number;
     aiRequests: number;
   };
   popular?: boolean;
@@ -45,7 +45,7 @@ const plans: Plan[] = [
     ],
     limits: {
       dashboards: 3,
-      fileSize: 5,
+      fileSizeMb: 5,
       aiRequests: 10,
     },
   },
@@ -66,7 +66,7 @@ const plans: Plan[] = [
     ],
     limits: {
       dashboards: 999999,
-      fileSize: 25,
+      fileSizeMb: 25,
       aiRequests: 100,
     },
     popular: true,
@@ -89,7 +89,7 @@ const plans: Plan[] = [
     ],
     limits: {
       dashboards: 999999,
-      fileSize: 100,
+      fileSizeMb: 100,
       aiRequests: 999999,
     },
   },

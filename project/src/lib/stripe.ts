@@ -1,92 +1,64 @@
-import { loadStripe } from '@stripe/stripe-js';
 import { supabase } from './supabase';
 
-// Initialize Stripe
-export const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const SUPABASE_FUNCTIONS_URL = 'https://cyevofqqtjbbwmnathfs.supabase.co/functions/v1';
 
-// Helper to check subscription status
-export async function checkSubscriptionStatus() {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    const { data: subscription, error } = await supabase
-      .from('subscriptions')
-      .select(`
-        *,
-        subscription_plans (
-          name,
-          features,
-          limits
-        )
-      `)
-      .eq('user_id', user.id)
-      .maybeSingle(); // Use maybeSingle instead of single to handle no results
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching subscription:', error);
-      return null;
-    }
-
-    return subscription;
-  } catch (error) {
-    console.error('Error checking subscription:', error);
-    return null;
-  }
-}
-
-// Helper to create checkout session
+/**
+ * Cria uma sessão de checkout com o Stripe e redireciona o usuário.
+ * @param priceId ID do preço (price_...) do Stripe.
+ */
 export async function createCheckoutSession(priceId: string) {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      },
-      body: JSON.stringify({ priceId })
-    });
+  const { data, error } = await supabase.auth.getSession();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Checkout session creation failed: ${response.status} ${errorText}`);
-    }
-
-    const data = await response.json();
-    if (!data.sessionId) {
-      throw new Error('Invalid response from checkout session creation');
-    }
-
-    return stripe?.redirectToCheckout({ sessionId: data.sessionId });
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    throw error;
+  if (error || !data.session) {
+    throw new Error('User not authenticated');
   }
+
+  const accessToken = data.session.access_token;
+
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-checkout-session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ priceId }),
+  });
+
+  const response = await res.json();
+
+  console.log('[🔁 Stripe Response]', response);
+
+  if (!response?.url) {
+    console.error('[❌ Stripe Error]', response?.error || 'Unknown error');
+    throw new Error('Checkout session failed');
+  }
+
+  window.location.href = response.url;
 }
 
-// Helper to create portal session
+/**
+ * Redireciona o usuário para o portal de gerenciamento de assinatura.
+ */
 export async function createPortalSession() {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      }
-    });
+  const session = await supabase.auth.getSession();
+  const accessToken = session.data.session?.access_token;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Portal session creation failed: ${response.status} ${errorText}`);
-    }
+  if (!accessToken) throw new Error('User not authenticated');
 
-    const data = await response.json();
-    if (!data.url) {
-      throw new Error('Invalid response from portal session creation');
-    }
+  const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/create-portal-session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
 
-    window.location.href = data.url;
-  } catch (error) {
-    console.error('Error creating portal session:', error);
-    throw error;
+  const { url, error } = await res.json();
+
+  if (!url) {
+    console.error('[❌ Portal Error]', error);
+    throw new Error('Failed to create portal session');
   }
+
+  window.location.href = url;
 }

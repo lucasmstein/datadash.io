@@ -26,27 +26,47 @@ serve(async (req) => {
   } catch (err) {
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
+  console.log("🧪 Webhook session received:", JSON.stringify(session, null, 2));
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
 
-    const { error } = await supabase
+    // 🔍 Buscar plano pelo price_id
+    const { data: plan, error: planError } = await supabase
+      .from("subscription_plans")
+      .select("id")
+      .eq("stripe_price_id", session.metadata?.price_id)
+      .single();
+
+    if (planError || !plan?.id) {
+      console.error("Plano não encontrado:", session.metadata?.price_id);
+      return new Response("Plano inválido", { status: 500 });
+    }
+
+    // ✅ Atualiza assinatura
+    const { error: upsertError } = await supabase
       .from("subscriptions")
-      .insert([
+      .upsert([
         {
           user_id: session.metadata?.user_id,
           status: "active",
           created_at: new Date().toISOString(),
-          plan_id: session.metadata?.price_id,
+          plan_id: plan.id,
           stripe_customer_id: session.customer,
-          subscription_id: session.subscription,
+          stripe_subscription_id: session.subscription,
         },
-      ]);
+      ], { onConflict: 'user_id' });
 
-    if (error) {
-      console.error("Erro ao salvar subscription:", error);
-      return new Response("Erro ao salvar no Supabase", { status: 500 });
+    if (upsertError) {
+      console.error("Erro ao salvar subscription:", upsertError);
+      return new Response("Erro ao salvar assinatura", { status: 500 });
     }
+
+    // ✅ Atualiza perfil
+    await supabase
+      .from("profiles")
+      .update({ subscription_id: session.id })
+      .eq("id", session.metadata?.user_id);
   }
 
   return new Response("ok", { status: 200 });

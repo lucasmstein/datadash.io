@@ -1,71 +1,101 @@
-import { serve } from 'https://deno.land/std@0.192.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
-import Stripe from 'https://esm.sh/stripe@12.0.0?target=deno';
+import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
+import Stripe from "npm:stripe@14.12.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+};
+
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+  apiVersion: "2023-10-16",
+  httpClient: Stripe.createFetchHttpClient(),
+});
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL") || "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+);
 
 serve(async (req) => {
+  // Preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const { priceId } = await req.json();
+    const token = req.headers.get("Authorization")?.split("Bearer ")[1];
 
-    // 🔐 Pega a chave do Stripe vinda da tabela `settings`
-    const { data: setting, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'stripe_sk')
-      .single();
-
-    if (error || !setting?.value) {
-      console.error('Stripe key not found', error);
-      return new Response('Stripe secret key not found', { status: 500 });
+    if (!token) {
+      return new Response(JSON.stringify({ error: "No authorization token" }), {
+        headers: corsHeaders,
+        status: 401,
+      });
     }
 
-    const stripe = new Stripe(setting.value, {
-      apiVersion: '2023-10-16',
-    });
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-    const body = await req.json();
-    const priceId = body.priceId;
-
-    // 🔐 Autenticação do usuário via JWT
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response('Missing authorization header', { status: 401 });
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        headers: corsHeaders,
+        status: 401,
+      });
     }
 
-    const jwt = authHeader.replace('Bearer ', '');
+    // Verifica se já tem stripe_customer_id
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(jwt);
+    let customerId = subscription?.stripe_customer_id;
 
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      return new Response('Not authenticated', { status: 401 });
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email!,
+        metadata: { supabase_user_id: user.id },
+      });
+
+      customerId = customer.id;
+
+      await supabase.from("subscriptions").upsert({
+        user_id: user.id,
+        stripe_customer_id: customerId,
+        status: 'incomplete',
+      }, { onConflict: 'user_id' });
     }
 
-    // 🧾 Criação da sessão de checkout
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      customer_email: user.email!,
+      customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${Deno.env.get('SITE_URL')}/plans?success=true`,
-      cancel_url: `${Deno.env.get('SITE_URL')}/plans?canceled=true`,
+      mode: "subscription",
+      success_url: `${req.headers.get("origin")}/plans?success=true`,
+      cancel_url: `${req.headers.get("origin")}/plans?canceled=true`,
+      subscription_data: {
+        trial_period_days: 7,
+      },
       metadata: {
         user_id: user.id,
         price_id: priceId,
-      },
+      }
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
       status: 200,
     });
-  } catch (error) {
-    console.error('Checkout session error:', error);
-    return new Response('Internal server error', { status: 500 });
+
+  } catch (err) {
+    console.error("❌ Checkout session error:", err);
+    return new Response(JSON.stringify({
+      error: "Failed to create checkout session",
+      details: err instanceof Error ? err.message : "Unknown error",
+    }), {
+      headers: corsHeaders,
+      status: 500,
+    });
   }
 });
