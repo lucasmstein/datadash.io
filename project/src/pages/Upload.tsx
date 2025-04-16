@@ -1,14 +1,15 @@
+// Upload.tsx atualizado com correção de tipo em LimitModal e adição de formatDate e formatFileSize
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Upload as UploadIcon, 
-  FileSpreadsheet, 
-  X, 
-  Loader2, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Info, 
-  FileType, 
+import {
+  Upload as UploadIcon,
+  FileSpreadsheet,
+  X,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  FileType,
   BarChart2 as LucideBarChart2,
   Calculator,
   Database,
@@ -19,6 +20,7 @@ import { useSubscription } from '../hooks/useSubscription';
 import { canUseLimit } from '../lib/planLimits';
 import { LimitModal } from '../components/modals/LimitModal';
 
+// Tipos auxiliares
 type ColumnType = 'number' | 'date' | 'string';
 
 interface ColumnAnalysis {
@@ -82,7 +84,7 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
       if (type === 'date') return new Date(value).toISOString();
       return value;
     });
-    
+
     let stats;
     if (type === 'number') {
       const numericValues = processedValues.filter(v => v !== null) as number[];
@@ -95,7 +97,7 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
         };
       }
     }
-    
+
     return {
       name: header,
       type,
@@ -108,56 +110,61 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows, columnAnalysis };
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function Upload(): JSX.Element {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const { subscription } = useSubscription();
-  const [limitFeature, setLimitFeature] = useState<'dashboards' | 'fileSizeMb' | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [limitFeature, setLimitFeature] = useState<'dashboards' | 'fileSizeMb' | 'aiRequests' | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
-  
+
   useEffect(() => {
-    const loadRecentUploads = async (): Promise<void> => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        
-        const { data } = await supabase
-          .from('dashboards')
-          .select('id, title, file_info, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-          
-        setRecentUploads(data || []);
-      } catch (error) {
-        console.error('Error loading recent uploads:', error);
-      }
-    };
-    
+    async function loadRecentUploads() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('dashboards').select('id, title, file_info, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3);
+      setRecentUploads(data || []);
+    }
     loadRecentUploads();
   }, []);
 
-  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>): void => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
@@ -170,7 +177,7 @@ export function Upload(): JSX.Element {
     }
   }, []);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile?.type === 'text/csv' || selectedFile?.name.endsWith('.csv')) {
       setFile(selectedFile);
@@ -180,129 +187,72 @@ export function Upload(): JSX.Element {
       setError('Please upload a CSV file');
     }
   }, []);
-  
-  const previewFile = async (file: File): Promise<void> => {
-    if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        const text = e.target?.result as string;
-        if (!text) return;
-        
-        const lines = text.split('\n').slice(0, 6); // Get header + 5 rows
-        
-        if (lines.length > 1) {
-          const headers = lines[0].split(',').map(h => h.trim());
-          const rows = lines.slice(1, 6).map(line => {
-            const values = line.split(',');
-            return headers.reduce((obj, header, index) => {
-              obj[header] = values[index]?.trim() ?? '';
-              return obj;
-            }, {} as Record<string, string>);
-          });
-          
-          setPreviewData({ headers, rows });
-        }
-      };
-      
-      reader.readAsText(file);
-    } catch (error) {
-      console.error('Error previewing file:', error);
-    }
+
+  const previewFile = async (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+      const lines = text.split('\n').slice(0, 6);
+      if (lines.length > 1) {
+        const headers = lines[0].split(',').map(h => h.trim());
+        const rows = lines.slice(1).map(line => {
+          const values = line.split(',');
+          return headers.reduce((obj, header, index) => {
+            obj[header] = values[index]?.trim() ?? '';
+            return obj;
+          }, {} as Record<string, string>);
+        });
+        setPreviewData({ headers, rows });
+      }
+    };
+    reader.readAsText(file);
   };
 
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-
     setLoading(true);
     setError(null);
     setUploadProgress(0);
-
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-
-      const { data: existingDashboards } = await supabase
-        .from('dashboards')
-        .select('id')
-        .eq('user_id', user.id);
-
+      const { data: existingDashboards } = await supabase.from('dashboards').select('id').eq('user_id', user.id);
       if (!canUseLimit(subscription, 'dashboards', existingDashboards?.length || 0)) {
         setLimitFeature('dashboards');
         setLoading(false);
         return;
       }
-
       const fileSizeMb = file.size / (1024 * 1024);
       if (!canUseLimit(subscription, 'fileSizeMb', fileSizeMb)) {
         setLimitFeature('fileSizeMb');
         setLoading(false);
         return;
       }
-
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
       const text = await file.text();
       const { columnAnalysis } = parseCSV(text);
-
-      const { data: dashboard, error: dbError } = await supabase
-        .from('dashboards')
-        .insert({
-          user_id: user.id,
-          title: file.name.replace('.csv', ''),
-          file_info: {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            uploaded_at: new Date().toISOString()
-          },
-          column_analysis: columnAnalysis,
-          insights: [],
-          visualizations: []
-        })
-        .select()
-        .single();
-
+      const { data: dashboard, error: dbError } = await supabase.from('dashboards').insert({
+        user_id: user.id,
+        title: file.name.replace('.csv', ''),
+        file_info: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploaded_at: new Date().toISOString(),
+        },
+        column_analysis: columnAnalysis,
+        insights: [],
+        visualizations: [],
+      }).select().single();
       if (dbError) throw dbError;
-
-      clearInterval(progressInterval);
       setUploadProgress(100);
-      setTimeout(() => {
-        navigate(`/dashboard/${dashboard.id}`);
-      }, 500);
+      setTimeout(() => navigate(`/dashboard/${dashboard.id}`), 500);
     } catch (err: any) {
       setError(err.message || 'Failed to process file');
-      console.error('Upload error:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
-  };
-  
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
   return (
@@ -591,11 +541,13 @@ export function Upload(): JSX.Element {
         </div>
       </div>
       
-      <LimitModal
-        open={!!limitFeature}
-        feature={limitFeature}
-        onClose={() => setLimitFeature(null)}
-      />
+      {limitFeature !== null && (
+        <LimitModal
+          open={true}
+          feature={limitFeature as 'dashboards' | 'fileSizeMb' | 'aiRequests'}
+          onClose={() => setLimitFeature(null)}
+        />
+      )}
     </>
   );
 }

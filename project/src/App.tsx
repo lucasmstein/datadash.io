@@ -66,7 +66,6 @@ function AppContent() {
           <Route path="plans" element={<AdminPlans />} />
           <Route path="uploads" element={<AdminUploads />} />
           <Route path="settings" element={<AdminSettings />} />
-
         </Route>
       </Route>
 
@@ -79,9 +78,9 @@ export default function App() {
   useLanguage();
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <AppContent />
-      </Router>
+        <Router>
+          <AppContent />
+        </Router>
     </QueryClientProvider>
   );
 }
