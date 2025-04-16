@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 export function Register() {
   const navigate = useNavigate();
-  const { signUp } = useAuthStore();
+  const { signIn } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,7 +55,7 @@ export function Register() {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName, companyName);
+      await signIn(email, password);
       navigate('/');
     } catch (err: any) {
       if (err?.message?.includes('User already registered') || err?.code === 'user_already_exists') {
